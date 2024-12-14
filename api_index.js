@@ -6,6 +6,8 @@ const {EventType} = require('./Services/event_types_index');
 const {Event} = require('./Services/event_index');
 const {Reservation} = require('./Services/reservations_index');
 
+const sqlite3 = require('sqlite3').verbose(); // include sqlite library
+
 const express = require('express');
 const app = express();
 app.use(express.json());
@@ -52,19 +54,25 @@ app.post("/api/user/create", async (req, res) => {
 app.get("/api/user/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findByPk(id);
-    if(id < 0){
-      res.status(422).json({ error: "User not found." });
+    const userID = parseInt(id);
+
+    if(isNaN(userID)){
+      res.status(422).json({ error: "User ID is not a number." });
       return;
     }
-    if(typeof id !== "number"){
-      res.status(422).json({ error: "User not found." });
+
+    if(userID < 0){
+      res.status(422).json({ error: "User ID is a negative number" });
       return;
     }
+
+    const user = await User.findByPk(id).catch();
+
     if (!user) {
       res.status(404).json({ error: "User not found." });
       return;
     }
+
     res.status(200).json(user);
   } catch (error) {
     res.status(500).json({ error: "Internal Server Error", message: error.message });
@@ -74,20 +82,31 @@ app.get("/api/user/:id", async (req, res) => {
 app.delete("/api/user/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findByPk(id);
-    if(id < 0){
-      res.status(422).json({ error: "User not found." });
+    const userID = parseInt(id);
+
+    if(isNaN(userID)){
+      res.status(422).json({ error: "User ID is not a number" });
       return;
     }
-    if(typeof id !== "number"){
-      res.status(422).json({ error: "User not found." });
+
+    if(userID < 0){
+      res.status(422).json({ error: "User ID is a negative number" });
       return;
     }
+
+    const user = await User.findByPk(id).catch();
 
     if (!user) {
       res.status(404).json({ error: "User not found." });
       return;
     }
+
+    const reservations = await Reservation.findByPk(id).catch();
+    if  (reservations) {
+      res.status(409).json({ error: "User has reservations, therefore cannot be deleted." });
+      return;
+    }
+
     
     await user.destroy();
     res.status(200).json({ message: "User deleted successfully." });
@@ -95,6 +114,88 @@ app.delete("/api/user/:id", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
 })
+
+//ask if updated username firstname or lastanme can be the same
+app.put("/api/user/update", async (req, res) => {
+  try {
+    const { id, username, firstname, lastname } = req.body;
+    const userID = parseInt(id);
+
+    if(isNaN(userID)){
+      res.status(422).json({ error: "User ID is not a number" });
+      return;
+    }
+
+    if(userID < 0){
+      res.status(422).json({ error: "User ID is a negative number" });
+      return;
+    }
+
+    const user = await User.findByPk(id).catch();
+
+    if (!user) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    if (!id ||!username || !firstname || !lastname) {
+      res.status(422).json({ error: "All parameters must be provided and must be non-empty strings.", });
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9]+$/.test(username)) {
+      res.status(422).json({
+        error: "The username must contain only alphanumeric characters.",
+      });
+      return;
+    }
+    if (username.length < 2) {
+      res
+        .status(422)
+        .json({ error: "The username must be at least 2 characters long." });
+      return;
+    }
+
+    await User.update({ username, firstname, lastname }, { where: { id } });
+    const updatedUser = await User.findByPk(id).catch();
+    res.status(200).json(updatedUser);
+    } 
+    catch (error) 
+    {
+      res.status(500).json({ error: "Internal Server Error", message: error.message });
+    }
+  })   
+
+app.get("/api/user", async (req, res) => {
+  try {
+    const users = await User.findAll();
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+});
+
+app.get("api/user/", async (req, res) => {
+  try { 
+    const eventID = req.query.eventID;
+    const event = await Event.findByPk(eventID).catch;
+
+    if (event) {
+      const users = await User.findAll({ where: { eventID } });
+      res.status(200).json(users);
+      return;
+    }
+
+    if (!event) {
+      res.status(404).json({ error: "The eventID does not exist." });
+      return;
+    }
+  } 
+  catch (error) 
+  {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+});
 
 //ORGANIZERS START
 app.post("/api/organizer/create", async (req, res) => {
@@ -121,10 +222,10 @@ app.post("/api/organizer/create", async (req, res) => {
     }
     const organizer = await Organizer.create({ id, name });
     res.status(200).json(organizer);
-  } catch (error) {
-    res
-      .status(500)
-      .json({ error: "Internal Server Error", message: error.message });
+  } 
+  catch (error)
+  {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
 });
 
@@ -190,7 +291,7 @@ app.post("/api/event/create", async (req, res) => {
       return;
     }
 
-    if ( typeof price !== "number" || typeof dateTime !== "number" || typeof locationLatitude !== "number" || typeof locationLongitude !== "number" || typeof maxParticipants !== "number")
+    if ( isNaN(eventTypeID) || isNaN(organizerID) || isNaN(price) || isNaN(locationLatitude) || isNaN(locationLongitude) || isNaN(maxParticipants) )
       {
       res.status(422).json({ error: "You provided a wrong parameter." });
       return;
@@ -251,7 +352,7 @@ app.post("/api/reservation/create", async (req, res) => {
       return;
     }
 
-    if (typeof userID !== "number" || typeof eventID !== "number") {
+    if (isNaN(userID) || isNaN(eventID)) {
       res.status(422).json({ error: "You provided a wrong parameter." });
       return;
     }
@@ -274,11 +375,13 @@ app.post("/api/reservation/create", async (req, res) => {
       return;
     }
 
-    // const currentReservationsCount = await Reservation.findOne({order: [['id', 'DESC']], where: {eventID: eventID} });
-    // if (currentReservationsCount > Event.maxParticipants) {
-    //   res.status(422).json({ error: "No slots available for this event." });
-    //   return;
-    // }
+    const eventmaxParticipants = await Event.findByPk(eventID).then((event) => event.maxParticipants);
+    const reservationCount = await Reservation.count({ where: { eventID } });
+
+    if (reservationCount >= eventmaxParticipants) {
+      res.status(422).json({ error: "No slots available for this event." });
+      return;
+    }
 
     const reservation = await Reservation.create({ userID, eventID });
     res.status(200).json(reservation);
