@@ -9,6 +9,7 @@ const {Reservation} = require('./Services/reservations_index');
 const sqlite3 = require('sqlite3').verbose(); // include sqlite library
 
 const express = require('express');
+const { where } = require('sequelize');
 const app = express();
 app.use(express.json());
 
@@ -27,6 +28,18 @@ app.post("/api/user/create", async (req, res) => {
     if (!/^[a-zA-Z0-9]+$/.test(username)) {
       res.status(422).json({
         error: "The username must contain only alphanumeric characters.",
+      });
+      return;
+    }
+    if(!/^[a-zA-Z]+$/.test(firstname)){
+      res.status(422).json({
+        error: "The first name must contain only alphabetical characters.",
+      });
+      return;
+    }
+    if(!/^[a-zA-Z]+$/.test(lastname)){
+      res.status(422).json({
+        error: "The last name must contain only alphabetical characters.",
       });
       return;
     }
@@ -54,14 +67,14 @@ app.post("/api/user/create", async (req, res) => {
 app.get("/api/user/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const userID = parseInt(id);
+    const user_id = parseInt(id);
 
-    if(isNaN(userID)){
+    if(isNaN(user_id)){
       res.status(422).json({ error: "User ID is not a number." });
       return;
     }
 
-    if(userID < 0){
+    if(user_id < 0){
       res.status(422).json({ error: "User ID is a negative number" });
       return;
     }
@@ -79,9 +92,9 @@ app.get("/api/user/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/user/:id", async (req, res) => {
+app.delete("/api/user/delete", async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.query;
     const userID = parseInt(id);
 
     if(isNaN(userID)){
@@ -115,7 +128,6 @@ app.delete("/api/user/:id", async (req, res) => {
   }
 })
 
-//ask if updated username firstname or lastanme can be the same
 app.put("/api/user/update", async (req, res) => {
   try {
     const { id, username, firstname, lastname } = req.body;
@@ -149,6 +161,20 @@ app.put("/api/user/update", async (req, res) => {
       });
       return;
     }
+
+    if(!/^[a-zA-Z]+$/.test(firstname)){
+      res.status(422).json({
+        error: "The first name must contain only alphabetical characters.",
+      });
+      return;
+    }
+    if(!/^[a-zA-Z]+$/.test(lastname)){
+      res.status(422).json({
+        error: "The last name must contain only alphabetical characters.",
+      });
+      return;
+    }
+
     if (username.length < 2) {
       res
         .status(422)
@@ -168,31 +194,28 @@ app.put("/api/user/update", async (req, res) => {
 
 app.get("/api/user", async (req, res) => {
   try {
-    const users = await User.findAll();
-    res.status(200).json(users);
-  } catch (error) {
-    res.status(500).json({ error: "Internal Server Error", message: error.message });
-  }
-});
+    const { eventID } =  req.query;
 
-app.get("api/user/", async (req, res) => {
-  try { 
-    const eventID = req.query.eventID;
-    const event = await Event.findByPk(eventID).catch;
+    if (eventID) {
+      const event = await Event.findByPk(eventID).catch;
 
-    if (event) {
-      const users = await User.findAll({ where: { eventID } });
+      if (event) {
+        const reservations = await  Reservation.findAll( {where: { eventID } });
+        const users = await User.findAll({ where: { id: reservations.map(reservation => reservation.userID) } });
+        res.status(200).json(users);
+        return;
+      }
+
+      if (!event) {
+        res.status(404).json({ error: "The eventID does not exist." });
+        return;
+      }
+    }
+    else {
+      const users = await User.findAll();
       res.status(200).json(users);
-      return;
-    }
-
-    if (!event) {
-      res.status(404).json({ error: "The eventID does not exist." });
-      return;
-    }
-  } 
-  catch (error) 
-  {
+    }  
+  } catch (error) {
     res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
 });
@@ -228,6 +251,42 @@ app.post("/api/organizer/create", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
 });
+
+app.delete("/api/organizer/delete", async (req, res) => {
+  try {
+    const { id } = req.body;
+    const organizerID = parseInt(id);
+
+    if (isNaN(organizerID)) {
+      res.status(422).json({ error: "All parameters must be provided and must benon-empty strings." });
+      return;
+    }
+
+    if (organizerID < 0) {
+      res.status(422).json({ error: "Organizer ID is a negative number." });
+      return;
+    }
+
+    const organizer = await Organizer.findByPk(id).catch();
+    if (!organizer) {
+      res.status(404).json({ error: "Organizer not found." });
+      return;
+    }
+
+    const events = await Event.findAll({ where: { organizerID } });
+    if (events) {
+      res.status(422).json({ error: "Organizer has events." });
+      return;
+    }
+
+    await organizer.destroy();
+    res.status(200).json({ message: "Organizer deleted successfully." });
+  } 
+  catch (error) 
+  {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+})
 
 //EVENT TYPES START
 app.post("/api/event-type/create", async (req, res) => {
@@ -343,7 +402,6 @@ app.post("/api/event/create", async (req, res) => {
 });
 
 //RESERVATIONS START
-
 app.post("/api/reservation/create", async (req, res) => {
   try {
     const { userID, eventID } = req.body;
@@ -363,7 +421,7 @@ app.post("/api/reservation/create", async (req, res) => {
       return;
     }
 
-    const events = await Event.findByPk(eventID).catch;
+    const events = await Event.findByPk(eventID).catch();
     if (!events) {
       res.status(404).json({ error: "The eventID does not exist." });
       return;
