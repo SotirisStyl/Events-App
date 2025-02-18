@@ -10,6 +10,7 @@ const sqlite3 = require('sqlite3').verbose(); // include sqlite library
 
 const express = require('express');
 const { where } = require('sequelize');
+const e = require('express');
 const app = express();
 app.use(express.json());
 
@@ -197,6 +198,12 @@ app.get("/api/user", async (req, res) => {
     const { eventID } =  req.query;
 
     if (eventID) {
+
+      if (isNaN(eventID)) {
+        res.status(422).json({ error: "Event ID is not a number." });
+        return;
+      }
+
       const event = await Event.findByPk(eventID).catch;
 
       if (event) {
@@ -223,8 +230,8 @@ app.get("/api/user", async (req, res) => {
 //ORGANIZERS START
 app.post("/api/organizer/create", async (req, res) => {
   try {
-    const { id, name } = req.body;
-    if (!id || !name) {
+    const { name } = req.body;
+    if (!name) {
       res.status(422).json({
         error: "All parameters must be provided and must be non-empty strings.",
       });
@@ -236,11 +243,11 @@ app.post("/api/organizer/create", async (req, res) => {
         .json({ error: "The name must be between 2 and 255 characters." });
       return;
     }
-    const existingOrganizer = await Organizer.findOne({ where: { id } });
+    const existingOrganizer = await Organizer.findOne({ where: { name } });
     if (existingOrganizer) {
       res
         .status(409)
-        .json({ error: "An organizer with the specified ID already exists." });
+        .json({ error: "An organizer with the specified name already exists." });
       return;
     }
     const organizer = await Organizer.create({ id, name });
@@ -252,9 +259,9 @@ app.post("/api/organizer/create", async (req, res) => {
   }
 });
 
-app.delete("/api/organizer/delete", async (req, res) => {
+app.delete("/api/organizer/delete/:id", async (req, res) => {
   try {
-    const { id } = req.body;
+    const { id } = req.query;
     const organizerID = parseInt(id);
 
     if (isNaN(organizerID)) {
@@ -280,13 +287,46 @@ app.delete("/api/organizer/delete", async (req, res) => {
     }
 
     await organizer.destroy();
-    res.status(200).json({ message: "Organizer deleted successfully." });
+    res.status(200).json({ message: "OK." });
   } 
   catch (error) 
   {
     res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
 })
+
+app.get("/api/organizer", async (req, res) => {
+  try {
+    const { hasEvents } = req.query;
+
+    if (hasEvents) {
+      if (hasEvents === "true") {
+        const events = await Event.findAll();
+        const organizers = events.map(event => event.organizerID);
+        const organizerNames = await Organizer.findAll({ where: { id: organizers } });
+        res.status(200).json(organizerNames);
+      }
+      else if (hasEvents === "false") {
+        const organizers = await Organizer.findAll();
+        res.status(200).json(organizers);
+      }
+      else {
+        res.status(422).json({ error: "All parameters must be provided and must be non-empty strings." });
+        return;
+      }
+    }
+    else
+    {
+      const organizers = await Organizer.findAll();
+      res.status(200).json(organizers);
+    }
+    
+    }
+  catch (error) 
+  {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+});
 
 //EVENT TYPES START
 app.post("/api/event-type/create", async (req, res) => {
