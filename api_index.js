@@ -46,8 +46,7 @@ app.post("/api/user/create", async (req, res) => {
     }
     if (username.length < 2) {
       res
-        .status(422)
-        .json({ error: "The username must be at least 2 characters long." });
+        .status(422).json({ error: "The username must be at least 2 characters long." });
       return;
     }
     const existingUser = await User.findOne({ where: { username } });
@@ -120,14 +119,13 @@ app.delete("/api/user/delete", async (req, res) => {
       res.status(409).json({ error: "User has reservations, therefore cannot be deleted." });
       return;
     }
-
     
     await user.destroy();
     res.status(200).json({ message: "User deleted successfully." });
   } catch (error) {
     res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
-})
+});
 
 app.put("/api/user/update", async (req, res) => {
   try {
@@ -191,7 +189,7 @@ app.put("/api/user/update", async (req, res) => {
     {
       res.status(500).json({ error: "Internal Server Error", message: error.message });
     }
-  })   
+});
 
 app.get("/api/user", async (req, res) => {
   try {
@@ -259,7 +257,7 @@ app.post("/api/organizer/create", async (req, res) => {
   }
 });
 
-app.delete("/api/organizer/delete/:id", async (req, res) => {
+app.delete("/api/organizer/delete", async (req, res) => {
   try {
     const { id } = req.query;
     const organizerID = parseInt(id);
@@ -293,14 +291,14 @@ app.delete("/api/organizer/delete/:id", async (req, res) => {
   {
     res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
-})
+});
 
 app.get("/api/organizer", async (req, res) => {
   try {
     const { hasEvents } = req.query;
 
     if (hasEvents) {
-      if (hasEvents === "true") {
+      if (hasEvents === "true" || hasEvents === "") {
         const events = await Event.findAll();
         const organizers = events.map(event => event.organizerID);
         const organizerNames = await Organizer.findAll({ where: { id: organizers } });
@@ -359,7 +357,43 @@ app.post("/api/event-type/create", async (req, res) => {
   }
 });
 
-app.get("/api/event-type", async (req, res) => {
+app.delete("/api/event-type/delete", async (req, res) => {
+  try {
+    const { id } = req.query;
+    const eventTypeID = parseInt(id);
+
+    if (isNaN(eventTypeID)) {
+      res.status(422).json({ error: "All parameters must be provided and must be non-empty strings." });
+      return;
+    }
+
+    if (eventTypeID < 0) {
+      res.status(422).json({ error: "Event Type ID is a negative number." });
+      return;
+    }
+
+    const eventType = await EventType.findByPk(id).catch();
+    if (!eventType) {
+      res.status(404).json({ error: "ID does not exist." });
+      return;
+    }
+
+    const events = await Event.findAll({ where: { eventTypeID } });
+    if (events) {
+      res.status(422).json({ error: "Event Type has events therefore it cannot be deleted." });
+      return;
+    }
+
+    await eventType.destroy();
+    res.status(200).json({ message: "OK." });
+  } 
+  catch (error) {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+});
+
+//ask about error 422
+app.get("/api/event-types", async (req, res) => { 
   try {
     const eventTypes = await EventType.findAll();
     res.status(200).json(eventTypes);
@@ -441,6 +475,154 @@ app.post("/api/event/create", async (req, res) => {
   }
 });
 
+app.get("/api/event/delete", async (req, res) => {
+  try {
+    const { id } = req.query;
+    const eventID = parseInt(id);
+
+    if (isNaN(eventID)) {
+      res.status(422).json({ error: "All parameters must be provided and must be non-empty strings." });
+      return;
+    }
+
+    if (eventID < 0) {
+      res.status(422).json({ error: "Event ID cannot be a negative number." });
+      return;
+    }
+
+    const event = await Event.findByPk(id).catch();
+    if (!event) {
+      res.status(404).json({ error: "Event does not exist." });
+      return;
+    }
+
+    const reservations = await Reservation.findAll({ where: { eventID } });
+    if (reservations) {
+      res.status(422).json({ error: "Event has reservations therefore it cannot be deleted." });
+      return;
+    }
+
+    await event.destroy();
+    res.status(200).json({ message: "Event deleted successfully." });
+  } 
+  catch (error) {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+});
+
+app.get("/api/event/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const eventID = parseInt(id);
+
+    if (isNaN(eventID)) {
+      res.status(422).json({ error: "Event ID needs to be a number" });
+      return;
+    }
+
+    if (eventID < 0) {
+      res.status(422).json({ error: "Event ID cannot be a negative number." });
+      return;
+    }
+
+    const event = await Event.findByPk(id).catch();
+    if (!event) {
+      res.status(404).json({ error: "Event does not exist." });
+      return;
+    }
+
+    res.status(200).json(event);
+  } 
+  catch (error) {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+});
+
+app.put("/api/event/update", async (req, res) => {
+  try {
+    const {id, eventTypeID, organizerID, name, price, dateTime, locationLatitude, locationLongitude, maxParticipants} = req.body;
+
+    if (!id || !eventTypeID || !organizerID || !name || !price || !dateTime || !locationLatitude || !locationLongitude || !maxParticipants) {
+      res.status(422).json({ error: "All parameters must be provided." });
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9\s]+$/.test(name)) {
+      res.status(422).json({ error: "The name must contain only letters, numbers, and spaces." });
+      return;
+    }
+
+    if (name.length < 2 || name.length > 255) {
+      res.status(422).json({ error: "The name must be between 2 and 255 characters." });
+      return;
+    }
+
+
+    if (isNaN(id) || isNaN(eventTypeID) || isNaN(organizerID) || isNaN(price) || isNaN(locationLatitude) || isNaN(locationLongitude) || isNaN(maxParticipants)) {
+      res.status(422).json({ error: "You provided a wrong parameter." });
+      return;
+    }
+
+    const event = await Event.findByPk(id).catch();
+    if (!event) {
+      res.status(404).json({ error: "The event does not exist." });
+      return;
+    }
+
+    const eventTypes = await EventType.findByPk(eventTypeID).catch();
+    if (!eventTypes) {
+      res.status(404).json({ error: "The eventTypeID does not exist." });
+      return; 
+    }
+
+    const organizers = await Organizer.findByPk(organizerID).catch();
+    if (!organizers) {
+      res.status(404).json({ error: "The organizerID does not exist." });
+      return; 
+    }
+
+    if (Date.now() > dateTime) {
+      res.status(422).json({ error: "Invalid or past date" });
+      return;
+    }
+
+    if (price < 0) {
+      res.status(422).json({ error: "The price must be a non-negative number." });
+      return;
+    }
+
+    if (locationLatitude < -90 || locationLatitude > 90) {
+      res.status(422).json({ error: "The locationLatitude must be a number between -90 and 90.", });
+      return;
+    }
+
+    if (locationLongitude < -180 || locationLongitude > 180) {
+      res.status(422).json({ error: "The locationLongitude must be a number between -180 and 180.", });
+      return;
+    }
+
+    if (maxParticipants < 0) {
+      res.status(422).json({ error: "The maxParticipants must be a non-negative number." });
+      return;
+    }
+
+    await event.update({eventTypeID, organizerID, name, price, dateTime, locationLatitude, locationLongitude, maxParticipants});
+    res.status(200).json(event);
+  } 
+  catch (error) {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+});
+
+// app.get("/api/events", async (req, res) => {
+//   try {
+//     const { organizerID, eventTypeID, dateTime, userIDs } = req.query;
+//     }
+//     catch (error) {
+//     res.status(500).json({ error: "Internal Server Error", message: error.message });
+//   }
+// });
+
 //RESERVATIONS START
 app.post("/api/reservation/create", async (req, res) => {
   try {
@@ -489,6 +671,87 @@ app.post("/api/reservation/create", async (req, res) => {
   }
 });
 
+app.get("/api/reservation/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const reservationID = parseInt(id);
+
+    if (isNaN(reservationID)) {
+      res.status(422).json({ error: "Reservation ID needs to be a number" });
+      return;
+    }
+
+    if (reservationID < 0) {
+      res.status(422).json({ error: "Reservation ID cannot be a negative number." });
+      return;
+    }
+
+    const reservation = await Reservation.findByPk(reservationID).catch();
+    if (!reservation) {
+      res.status(404).json({ error: "Reservation does not exist." });
+      return; 
+    }
+
+    res.status(200).json(reservation);
+  } 
+  catch (error) {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+});
+
+app.delete("/api/reservation/delete", async (req, res) => {
+  try {
+    const { id } = req.query;
+    const reservationID = parseInt(id);
+
+    if (!id) {
+      res.status(422).json({ error: "All parameters must be provided." });
+      return;
+    }
+
+    if (isNaN(reservationID)) {
+      res.status(422).json({ error: "Reservation ID needs to be a number" });
+      return;
+    }
+
+    if (reservationID < 0) {
+      res.status(422).json({ error: "Reservation ID cannot be a negative number." });
+      return;
+    }
+  
+    const reservation = await Reservation.findByPk(reservationID).catch();
+    if (!reservation) {
+      res.status(404).json({ error: "Reservation does not exist." });
+      return;
+    }
+
+    await reservation.destroy();
+
+    res.status(200).json({ message: "Reservation deleted successfully." });
+  } 
+  catch (error) {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+});
+
+app.get("/api/reservations", async (req, res) => {
+  try {
+    const { userID, eventID } = req.query;
+
+    if (isNaN(userID)) {
+      res.status(422).json({ error: "You provided a wrong parameter." });
+      return;
+    }
+
+    if (isNaN(eventID)) {
+      res.status(422).json({ error: "You provided a wrong parameter." });
+      return;
+    }
+  } 
+  catch (error) {
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
+  }
+});
 
 sequelize.sync()
   .then(() => {
