@@ -1,0 +1,14 @@
+<html>
+    <head>
+        <title>Organizers</title>
+    </head>
+    <body>
+        <h1>Organizers</h1>
+        <ul>
+            <% organizers.forEach((organizer) => { %>
+                <li>Organizer ID: <%= organizer.id %>, Organizer Name: <%= organizer.name %></li>
+                <br/>
+            <% }); %>
+        </ul>
+    </body>
+</html>

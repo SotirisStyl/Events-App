@@ -1,0 +1,14 @@
+<html>
+    <head>
+        <title>Event Types</title>
+    </head>
+    <body>
+        <h1>Event Types</h1>
+        <ul>
+            <% eventTypes.forEach((eventType) => { %>
+                <li> Event Type ID: <%= eventType.id %>, Event Type Name: <%= eventType.name %></li>
+                <br/>
+            <% }); %>
+        </ul>
+    </body>
+</html>

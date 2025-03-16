@@ -1,0 +1,19 @@
+<html>
+    <head>
+        <title>Reservations</title>
+    </head>
+    <body>
+        <h1>Reservations</h1>
+        <ul>
+            <% reservations.forEach((reservations) => { %>
+                <li>Reservation ID: <%= reservations.id %>
+                    <ul>
+                        <li>User ID: <%= reservations.userID %></li>
+                        <li>Event ID: <%= reservations.eventID %></li>
+                    </ul>
+                    <br/>
+                </li>
+            <% }); %>
+        </ul>
+    </body>
+</html>

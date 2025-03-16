@@ -1,0 +1,25 @@
+<html>
+    <head>
+        <title>Events</title>
+    </head>
+    <body>
+        <h1>Events</h1>
+        <ul>
+            <% events.forEach((event) => { %>
+                <li>Event ID: <%= event.id %>
+                    <ul>
+                        <li>Event Type ID: <%= event.eventTypeID %></li>
+                        <li>Organizer ID: <%= event.organizerID %></li>
+                        <li>Price: <%= event.price %></li>
+                        <li>Date Time: <%= event.dateTime %></li>
+                        <li>Location Latitude: <%= event.locationLatitude %></li>
+                        <li>Location Longitude: <%= event.locationLongitude %></li>
+                        <li>Max Participants: <%= event.maxParticipants %></li>
+                        <li>Enent Name: <%= event.name %></li>
+                    </ul>
+                    <br/>
+                </li>
+            <% }); %>
+        </ul>
+    </body>
+</html>

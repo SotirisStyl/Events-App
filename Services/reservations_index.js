@@ -5,22 +5,18 @@ const sequelize = require('./database');
 const Reservation = sequelize.define(
     "Reservation",
     {
+        id: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
+            autoIncrement: true
+        },
         eventID: {
             type: DataTypes.INTEGER,
-            unique: true,
             allowNull: false,
-            validate: {
-                isNumeric: true,
-                notEmpty: true,
-            },
         },
         userID: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            validate: {
-                isNumeric: true,
-                notEmpty: true,
-            },
         },
     },
     {

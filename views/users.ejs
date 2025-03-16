@@ -1,0 +1,78 @@
+<html>
+  <head>
+    <title>Users</title>
+  </head>
+  <body>
+    <h2>Create a New User</h2>
+    <form action="/users/create" method="POST">
+      <label for="username">Username:</label>
+      <input type="text" id="username" name="username" required /><br /><br />
+
+      <label for="firstname">First Name:</label>
+      <input type="text" id="firstname" name="firstname" required /><br /><br />
+
+      <label for="lastname">Last Name:</label>
+      <input type="text" id="lastname" name="lastname" required /><br /><br />
+
+      <input type="submit" value="Create User" />
+    </form>
+
+    <hr />
+
+    <h2>Get User by ID</h2>
+    <form action="/users/find" method="POST">
+      <label for="id">ID:</label>
+      <input type="text" id="id" name="id" required /><br /><br />
+      <input type="submit" value="Get User" />
+    </form>
+
+    <% if (user) { %>
+    <h3>User Details:</h3>
+    <p><strong>ID:</strong> <%= user.id %></p>
+    <p><strong>Username:</strong> <%= user.username %></p>
+    <p><strong>Name:</strong> <%= user.firstname %></p>
+    <p><strong>Lastname:</strong> <%= user.lastname %></p>
+    <% } else if (typeof user !== 'undefined') { %>
+    <p>No user found with the provided ID.</p>
+    <% } %>
+
+    <hr />
+
+    <h2>Update User</h2>
+    <form action="/users/update?_method=PUT" method="POST">
+        <label for="id">ID:</label>
+        <input type="number" id="id" name="id" required /><br /><br />
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required /><br /><br />
+        <label for="firstname">First Name:</label>
+        <input type="text" id="firstname" name="firstname" required /><br /><br />
+        <label for="lastname">Last Name:</label>
+        <input type="text" id="lastname" name="lastname" required /><br /><br />
+        <input type="submit" value="Update User" />
+    </form>
+
+    <hr />
+
+    <h2>Delete User</h2>
+    <form action="/users/delete?_method=DELETE" method="POST">
+        <label for="id">ID:</label>
+        <input type="number" id="id" name="id" required /><br /><br />
+        <input type="submit" value="Delete User" />
+    </form>
+
+
+    <hr />
+
+    <h2>All Users</h2>
+    <ul>
+      <% if (users && users.length > 0) { %> <% users.forEach((user) => { %>
+      <li>
+        ID: <%= user.id %>, Username: <%= user.username %>, Name: <%=
+        user.firstname %> <%= user.lastname %>
+      </li>
+      <% }); %> <% } else { %>
+      <li>No users available.</li>
+      <% } %>
+    </ul>
+  </body>
+</html>
